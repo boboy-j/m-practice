@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../models/rhythm_pattern.dart';
 import 'audio_generator.dart';
 
-/// 节拍器服务 — 管理节拍器状态和节奏型练习
 class MetronomeService extends ChangeNotifier {
   int _bpm = 80;
   RhythmPattern? _currentPattern;
@@ -19,22 +17,12 @@ class MetronomeService extends ChangeNotifier {
   int _countInRemaining = 0;
 
   final AudioGenerator _audioGen;
-  Uint8List? _clickWav; // 预生成的点击音
-  Uint8List? _accentWav; // 重拍点击音（稍低频率）
 
-  // Stream broadcast: [beatIndex, totalBeats, isAccent(0|1)]
   final StreamController<List<int>> _beatController =
       StreamController<List<int>>.broadcast();
 
   MetronomeService({AudioGenerator? audioGen})
-      : _audioGen = audioGen ?? AudioGenerator() {
-    _preGenerateClicks();
-  }
-
-  void _preGenerateClicks() {
-    _clickWav = _audioGen.generateClick(frequency: 1500, durationMs: 12);
-    _accentWav = _audioGen.generateClick(frequency: 1800, durationMs: 12);
-  }
+      : _audioGen = audioGen ?? AudioGenerator();
 
   int get bpm => _bpm;
   RhythmPattern? get currentPattern => _currentPattern;
@@ -60,9 +48,10 @@ class MetronomeService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 启动节拍器，含 4 拍预备拍
-  void start() {
+  /// 启动节拍器（先预加载音频，确保首次点击能响）
+  Future<void> start() async {
     if (_currentPattern == null) return;
+    await _audioGen.preloadClicks();
     _isCountingIn = true;
     _countInRemaining = 4;
     _currentBeat = -4;
@@ -108,11 +97,10 @@ class MetronomeService extends ChangeNotifier {
       _countInRemaining--;
       _currentBeat++;
       _beatController.add([_currentBeat, 4 + _totalBeatCount, _countInRemaining == 3 ? 1 : 0]);
-      // 预备拍：第一拍重拍（accent），其余轻拍
       if (_countInRemaining == 3) {
-        _playAccent();
+        _audioGen.playAccent();
       } else {
-        _playClick();
+        _audioGen.playClick();
       }
       if (_countInRemaining <= 0) {
         _isCountingIn = false;
@@ -123,9 +111,9 @@ class MetronomeService extends ChangeNotifier {
       final isAccent = _beatInCycle == 0;
       _beatController.add([_currentBeat, _totalBeats, isAccent ? 1 : 0]);
       if (isAccent) {
-        _playAccent();
+        _audioGen.playAccent();
       } else {
-        _playClick();
+        _audioGen.playClick();
       }
       _beatInCycle++;
       _currentBeat++;
@@ -138,18 +126,6 @@ class MetronomeService extends ChangeNotifier {
 
     notifyListeners();
     _timer = _scheduleNextBeat();
-  }
-
-  void _playClick() {
-    if (_clickWav != null) {
-      _audioGen.playPreGenerated(_clickWav!);
-    }
-  }
-
-  void _playAccent() {
-    if (_accentWav != null) {
-      _audioGen.playPreGenerated(_accentWav!);
-    }
   }
 
   @override

@@ -17,7 +17,31 @@ class PitchPracticePage extends StatefulWidget {
 class _PitchPracticePageState extends State<PitchPracticePage> {
   MusicNote? _selectedNote;
   bool _isActive = false;
-  bool _useSimulation = true; // Web 默认模拟，移动端可切换真实录音
+  bool _useSimulation = true;
+  late PageController _pageController;
+  int _currentOctaveIdx = 1; // 默认 C4（八度4）
+
+  // 按八度分组
+  late final List<int> _octaveKeys;
+  late final Map<int, List<MusicNote>> _octaves;
+
+  @override
+  void initState() {
+    super.initState();
+    _octaves = {};
+    for (final note in MusicNote.fullRange) {
+      _octaves.putIfAbsent(note.octave, () => []);
+      _octaves[note.octave]!.add(note);
+    }
+    _octaveKeys = _octaves.keys.toList()..sort();
+    _pageController = PageController(initialPage: _currentOctaveIdx);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   void _playReferenceNote(MusicNote note) {
     final detector = context.read<PitchDetectorService>();
@@ -36,10 +60,9 @@ class _PitchPracticePageState extends State<PitchPracticePage> {
 
   Future<void> _start() async {
     if (_selectedNote == null) {
-      _playReferenceNote(MusicNote.fullRange[11]); // C4
+      _playReferenceNote(MusicNote.fullRange[11]);
     }
     setState(() => _isActive = true);
-
     if (_useSimulation) {
       _startSimulation();
     } else {
@@ -60,253 +83,16 @@ class _PitchPracticePageState extends State<PitchPracticePage> {
   void _startSimulation() {
     final detector = context.read<PitchDetectorService>();
     final target = detector.targetFrequency ?? 440.0;
-
     Future.doWhile(() async {
       if (!_isActive || !_useSimulation) return false;
       await Future.delayed(const Duration(milliseconds: 100));
       if (!_isActive || !_useSimulation) return false;
       final t = DateTime.now().millisecondsSinceEpoch / 1000.0;
       final drift = ((t * 3.7).remainder(2) - 1);
-      final centsOffset = 18.0 * drift;
-      detector.simulateFrequency(target * pow(2, centsOffset / 1200));
+      detector.simulateFrequency(target * pow(2, 18.0 * drift / 1200));
       return _isActive && _useSimulation;
     });
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = ThemeColors(isDark);
-
-    final octaves = <int, List<MusicNote>>{};
-    for (final note in MusicNote.fullRange) {
-      octaves.putIfAbsent(note.octave, () => []);
-      octaves[note.octave]!.add(note);
-    }
-
-    return Consumer<PitchDetectorService>(
-      builder: (context, detector, _) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('音准练习'),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () {
-                _stop();
-                Navigator.pop(context);
-              },
-            ),
-          ),
-          body: SafeArea(
-            child: Column(
-              children: [
-                // 音准仪表盘
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: PitchMeter(
-                    currentCents: detector.currentCents,
-                    isDark: isDark,
-                  ),
-                ),
-                // 评价文字
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: colors.card,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        detector.evaluation,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: _evaluationColor(detector),
-                        ),
-                      ),
-                      if (detector.currentFrequency != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          '${detector.currentFrequency!.toStringAsFixed(1)} Hz',
-                          style: TextStyle(color: colors.textSecondary, fontSize: 12),
-                        ),
-                      ],
-                      if (_selectedNote != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          '目标音：${_selectedNote!.name} (${_selectedNote!.solfege}) · ${_selectedNote!.frequency.toStringAsFixed(1)} Hz',
-                          style: TextStyle(color: colors.textSecondary, fontSize: 13),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // 模式切换
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _ModeChip(
-                      label: '模拟',
-                      icon: Icons.smart_toy,
-                      selected: _useSimulation,
-                      colors: colors,
-                      onTap: _isActive ? null : () => setState(() => _useSimulation = true),
-                    ),
-                    const SizedBox(width: 8),
-                    _ModeChip(
-                      label: '麦克风',
-                      icon: Icons.mic,
-                      selected: !_useSimulation,
-                      colors: colors,
-                      onTap: _isActive ? null : () => setState(() => _useSimulation = false),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                // 钢琴键盘
-                Expanded(
-                  child: _PianoKeyboard(
-                    octaves: octaves,
-                    selectedNote: _selectedNote,
-                    onNoteTap: _playReferenceNote,
-                    isDark: isDark,
-                  ),
-                ),
-                // 底部操作
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(32, 8, 32, 16),
-                  child: ElevatedButton.icon(
-                    onPressed: _togglePractice,
-                    icon: Icon(_isActive ? Icons.stop : (_useSimulation ? Icons.play_arrow : Icons.mic)),
-                    label: Text(_isActive ? '停止' : '开始练习'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 56),
-                      backgroundColor: _isActive ? AppTheme.errorColor : null,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Color _evaluationColor(PitchDetectorService detector) {
-    if (detector.currentCents == null) return Colors.grey;
-    final c = detector.currentCents!.abs();
-    if (c <= 5) return AppTheme.correctColor;
-    if (c <= 15) return AppTheme.secondaryColor;
-    if (c <= 30) return AppTheme.warningColor;
-    return AppTheme.errorColor;
-  }
-}
-
-/// 模式切换芯片
-class _ModeChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final ThemeColors colors;
-  final VoidCallback? onTap;
-
-  const _ModeChip({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.colors,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppTheme.primaryColor.withValues(alpha: 0.2)
-              : colors.card,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected
-                ? AppTheme.primaryColor
-                : colors.textSecondary.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: selected ? AppTheme.primaryColor : colors.textSecondary),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: selected ? AppTheme.primaryColor : colors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PianoKeyboard extends StatelessWidget {
-  final Map<int, List<MusicNote>> octaves;
-  final MusicNote? selectedNote;
-  final Function(MusicNote) onNoteTap;
-  final bool isDark;
-
-  const _PianoKeyboard({
-    required this.octaves,
-    this.selectedNote,
-    required this.onNoteTap,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      itemCount: octaves.length,
-      itemBuilder: (context, octaveIndex) {
-        final octave = octaves.keys.toList()[octaveIndex];
-        final notes = octaves[octave]!;
-        return _OctaveRow(
-          octave: octave,
-          notes: notes,
-          selectedNote: selectedNote,
-          onNoteTap: onNoteTap,
-          isDark: isDark,
-        );
-      },
-    );
-  }
-}
-
-class _OctaveRow extends StatelessWidget {
-  final int octave;
-  final List<MusicNote> notes;
-  final MusicNote? selectedNote;
-  final Function(MusicNote) onNoteTap;
-  final bool isDark;
-
-  const _OctaveRow({
-    required this.octave,
-    required this.notes,
-    this.selectedNote,
-    required this.onNoteTap,
-    required this.isDark,
-  });
 
   String _octaveLabel(int o) {
     switch (o) {
@@ -321,77 +107,204 @@ class _OctaveRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final keyWidth = (screenWidth - 16) / 7;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = ThemeColors(isDark);
 
-    final whiteKeyColor = isDark ? const Color(0xFFE8E8E8) : const Color(0xFFFFFFFF);
-    final whiteKeyBorder = isDark ? const Color(0xFF999999) : const Color(0xFFBBBBBB);
-    final whiteKeyTextColor = const Color(0xFF333333);
-    final whiteKeySubColor = const Color(0xFF777777);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 8, bottom: 2),
-            child: Text(
-              '八度 $octave · ${_octaveLabel(octave)}',
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
+    return Consumer<PitchDetectorService>(
+      builder: (context, detector, _) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('音准练习'),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () { _stop(); Navigator.pop(context); },
             ),
           ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // 仪表盘（紧凑）
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: PitchMeter(currentCents: detector.currentCents, isDark: isDark),
+                ),
+                // 评价 + 目标音
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  decoration: BoxDecoration(color: colors.card, borderRadius: BorderRadius.circular(12)),
+                  child: Column(
+                    children: [
+                      Text(detector.evaluation,
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _evalColor(detector))),
+                      if (_selectedNote != null)
+                        Text('目标：${_selectedNote!.name} (${_selectedNote!.solfege})  ${_selectedNote!.frequency.toStringAsFixed(1)} Hz',
+                            style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                // 模式切换
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _chip('模拟', Icons.smart_toy, _useSimulation, colors, _isActive ? null : () => setState(() => _useSimulation = true)),
+                    const SizedBox(width: 8),
+                    _chip('麦克风', Icons.mic, !_useSimulation, colors, _isActive ? null : () => setState(() => _useSimulation = false)),
+                  ],
+                ),
+                // 八度指示器
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left, size: 28),
+                        onPressed: _currentOctaveIdx > 0
+                            ? () => _pageController.previousPage(duration: const Duration(milliseconds: 200), curve: Curves.easeOut)
+                            : null,
+                        padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36),
+                      ),
+                      Text('八度 ${_octaveKeys[_currentOctaveIdx]} · ${_octaveLabel(_octaveKeys[_currentOctaveIdx])}',
+                          style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w600)),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right, size: 28),
+                        onPressed: _currentOctaveIdx < _octaveKeys.length - 1
+                            ? () => _pageController.nextPage(duration: const Duration(milliseconds: 200), curve: Curves.easeOut)
+                            : null,
+                        padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36),
+                      ),
+                    ],
+                  ),
+                ),
+                // PageView 钢琴键盘
+                Expanded(
+                  child: PageView.builder(
+                    controller: _pageController,
+                    onPageChanged: (i) => setState(() => _currentOctaveIdx = i),
+                    itemCount: _octaveKeys.length,
+                    itemBuilder: (context, index) {
+                      final octave = _octaveKeys[index];
+                      final notes = _octaves[octave]!;
+                      return _OctavePage(
+                        notes: notes,
+                        selectedNote: _selectedNote,
+                        onNoteTap: _playReferenceNote,
+                        isDark: isDark,
+                      );
+                    },
+                  ),
+                ),
+                // 底部按钮
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(32, 4, 32, 12),
+                  child: ElevatedButton.icon(
+                    onPressed: _togglePractice,
+                    icon: Icon(_isActive ? Icons.stop : Icons.play_arrow),
+                    label: Text(_isActive ? '停止' : '开始练习'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50),
+                      backgroundColor: _isActive ? AppTheme.errorColor : null,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Color _evalColor(PitchDetectorService d) {
+    if (d.currentCents == null) return Colors.grey;
+    final c = d.currentCents!.abs();
+    if (c <= 5) return AppTheme.correctColor;
+    if (c <= 15) return AppTheme.secondaryColor;
+    if (c <= 30) return AppTheme.warningColor;
+    return AppTheme.errorColor;
+  }
+
+  Widget _chip(String label, IconData icon, bool selected, ThemeColors colors, VoidCallback? onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.primaryColor.withValues(alpha: 0.2) : colors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: selected ? AppTheme.primaryColor : colors.textSecondary.withValues(alpha: 0.2)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 16, color: selected ? AppTheme.primaryColor : colors.textSecondary),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(color: selected ? AppTheme.primaryColor : colors.textSecondary, fontSize: 12)),
+        ]),
+      ),
+    );
+  }
+}
+
+/// 单个八度的钢琴键盘（大按键，适合手指点击）
+class _OctavePage extends StatelessWidget {
+  final List<MusicNote> notes;
+  final MusicNote? selectedNote;
+  final Function(MusicNote) onNoteTap;
+  final bool isDark;
+
+  const _OctavePage({required this.notes, this.selectedNote, required this.onNoteTap, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final keyWidth = (screenWidth - 20) / 7;
+    final whiteBg = isDark ? const Color(0xFFE8E8E8) : Colors.white;
+    final whiteBorder = isDark ? const Color(0xFF999999) : const Color(0xFFCCCCCC);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        children: [
+          const Spacer(),
+          // 键名标签
+          Row(
+            children: notes.map((n) => SizedBox(
+              width: keyWidth,
+              child: Center(child: Text(n.solfege,
+                  style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary, fontSize: 16, fontWeight: FontWeight.w700))),
+            )).toList(),
+          ),
+          const SizedBox(height: 6),
+          // 琴键
           SizedBox(
-            height: 54,
+            height: 100,
             child: Row(
               children: List.generate(7, (i) {
                 final note = notes[i];
-                final isSelected = selectedNote?.midiNumber == note.midiNumber;
+                final isSel = selectedNote?.midiNumber == note.midiNumber;
                 return GestureDetector(
                   onTap: () => onNoteTap(note),
                   child: Container(
                     width: keyWidth,
-                    margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                    margin: const EdgeInsets.symmetric(horizontal: 1),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primaryColor : whiteKeyColor,
-                      border: Border.all(color: whiteKeyBorder, width: 0.5),
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(4),
-                        bottomRight: Radius.circular(4),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.08),
-                          offset: const Offset(0, 1),
-                          blurRadius: 2,
-                        ),
-                      ],
+                      color: isSel ? AppTheme.primaryColor : whiteBg,
+                      border: Border.all(color: whiteBorder, width: 0.5),
+                      borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(6), bottomRight: Radius.circular(6)),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), offset: const Offset(0, 2), blurRadius: 3)],
                     ),
                     alignment: Alignment.bottomCenter,
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(note.solfege, style: TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w700,
-                          color: isSelected ? Colors.white : whiteKeyTextColor,
-                        )),
-                        Text(note.name, style: TextStyle(
-                          fontSize: 10, fontWeight: FontWeight.w500,
-                          color: isSelected ? Colors.white70 : whiteKeySubColor,
-                        )),
-                      ],
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      note.name,
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isSel ? Colors.white : const Color(0xFF333333)),
                     ),
                   ),
                 );
               }),
             ),
           ),
+          const Spacer(),
         ],
       ),
     );

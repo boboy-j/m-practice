@@ -12,110 +12,106 @@ class ScorePracticePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('曲谱练习'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // 模拟简谱展示
               Card(
                 color: colors.card,
                 child: Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      Icon(Icons.library_music, size: 64,
-                          color: AppTheme.primaryColor.withValues(alpha: 0.5)),
-                      const SizedBox(height: 16),
-                      Text('曲谱练习模式',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: colors.textPrimary)),
-                      const SizedBox(height: 8),
-                      Text('跟随简谱演奏/演唱\n系统实时评估音准和节拍',
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.music_note, color: AppTheme.primaryColor, size: 28),
+                          SizedBox(width: 4),
+                          Icon(Icons.music_note, color: AppTheme.secondaryColor, size: 24),
+                          SizedBox(width: 4),
+                          Icon(Icons.music_note, color: AppTheme.warningColor, size: 20),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text('小星星', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colors.textPrimary)),
+                      const SizedBox(height: 12),
+                      // 简谱 demo
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 6,
+                        runSpacing: 8,
+                        children: [
+                          _note('1', '♩', colors),
+                          _note('1', '♩', colors),
+                          _note('5', '♩', colors),
+                          _note('5', '♩', colors),
+                          _note('6', '♩', colors),
+                          _note('6', '♩', colors),
+                          _note('5', '♪', colors),
+                          _bar(colors),
+                          _note('4', '♩', colors),
+                          _note('4', '♩', colors),
+                          _note('3', '♩', colors),
+                          _note('3', '♩', colors),
+                          _note('2', '♩', colors),
+                          _note('2', '♩', colors),
+                          _note('1', '♪', colors),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text('do do sol sol  la la sol —\nfa fa mi mi  re re do —',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: colors.textSecondary, fontSize: 14, height: 1.6)),
+                          style: TextStyle(color: colors.textSecondary, fontSize: 13)),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              Text('计划功能', style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 20),
+              // 即将支持
+              Text('🎵 即将支持', style: TextStyle(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
-              _FeatureItem(icon: Icons.music_note, title: '简谱显示', subtitle: '支持数字简谱渲染，音高和时值可视化', status: '开发中', colors: colors),
-              _FeatureItem(icon: Icons.speed, title: '实时跟谱', subtitle: '光标跟随当前音符，自动翻页', status: '规划中', colors: colors),
-              _FeatureItem(icon: Icons.assessment, title: '综合评分', subtitle: '音准 + 节拍双重评估，分维度展示', status: '规划中', colors: colors),
-              _FeatureItem(icon: Icons.history, title: '练习记录', subtitle: '历史成绩追踪，可视化进步曲线', status: '规划中', colors: colors),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: colors.card, borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, color: AppTheme.warningColor),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '此模块将在音准和节拍检测引擎验证完成后开发。\n当前阶段请先体验音准练习和节拍练习。',
-                        style: TextStyle(color: colors.textSecondary, fontSize: 13),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _feat('自定义简谱导入', '支持数字简谱录入，自由编辑', colors),
+              _feat('光标跟随演奏', '实时高亮当前音符，自动翻页', colors),
+              _feat('音准+节拍综合评分', '演奏完成后分维度展示成绩', colors),
+              _feat('练习记录追踪', '历史数据可视化，见证进步', colors),
             ],
           ),
         ),
       ),
     );
   }
-}
 
-class _FeatureItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String status;
-  final ThemeColors colors;
+  Widget _note(String solfege, String duration, ThemeColors c) {
+    return Column(
+      children: [
+        Text(solfege, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: c.textPrimary)),
+        Text(duration, style: TextStyle(fontSize: 11, color: c.textSecondary)),
+      ],
+    );
+  }
 
-  const _FeatureItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.status,
-    required this.colors,
-  });
+  Widget _bar(ThemeColors c) {
+    return Container(width: 2, height: 32, color: c.textSecondary.withValues(alpha: 0.3));
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    final statusColor = status == '开发中' ? AppTheme.warningColor : colors.textSecondary;
-
+  Widget _feat(String title, String desc, ThemeColors colors) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(color: colors.card, borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, color: AppTheme.primaryColor, size: 20),
-          ),
+          Container(width: 36, height: 36, decoration: BoxDecoration(color: colors.card, borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.check_circle_outline, color: AppTheme.secondaryColor, size: 20)),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
-                Text(subtitle, style: TextStyle(color: colors.textSecondary, fontSize: 12)),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-            child: Text(status, style: TextStyle(color: statusColor, fontSize: 11)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
+              Text(desc, style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+            ]),
           ),
         ],
       ),
