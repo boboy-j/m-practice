@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../models/rhythm_pattern.dart';
+import 'audio_generator.dart';
 
 /// 节拍器服务 — 管理节拍器状态和节奏型练习
 class MetronomeService extends ChangeNotifier {
@@ -16,9 +18,23 @@ class MetronomeService extends ChangeNotifier {
   List<double>? _currentDurations;
   int _countInRemaining = 0;
 
+  final AudioGenerator _audioGen;
+  Uint8List? _clickWav; // 预生成的点击音
+  Uint8List? _accentWav; // 重拍点击音（稍低频率）
+
   // Stream broadcast: [beatIndex, totalBeats, isAccent(0|1)]
   final StreamController<List<int>> _beatController =
       StreamController<List<int>>.broadcast();
+
+  MetronomeService({AudioGenerator? audioGen})
+      : _audioGen = audioGen ?? AudioGenerator() {
+    _preGenerateClicks();
+  }
+
+  void _preGenerateClicks() {
+    _clickWav = _audioGen.generateClick(frequency: 1500, durationMs: 12);
+    _accentWav = _audioGen.generateClick(frequency: 1800, durationMs: 12);
+  }
 
   int get bpm => _bpm;
   RhythmPattern? get currentPattern => _currentPattern;
@@ -49,7 +65,7 @@ class MetronomeService extends ChangeNotifier {
     if (_currentPattern == null) return;
     _isCountingIn = true;
     _countInRemaining = 4;
-    _currentBeat = -4; // 负数为预备拍
+    _currentBeat = -4;
     _beatInCycle = 0;
     _totalBeatCount = 0;
     _currentDurations = _currentPattern!.durationsMs(_bpm).map((d) => d.toDouble()).toList();
@@ -71,21 +87,14 @@ class MetronomeService extends ChangeNotifier {
 
   void _startTimer() {
     _timer?.cancel();
-    // 预备拍间隔 = 一个整拍
-    final countInInterval = (60000 / _bpm).round();
-    _timer = Timer.periodic(Duration(milliseconds: countInInterval ~/ 4), (timer) {
-      // 使用更小的 tick 来更精确地控制
-    });
-    _timer?.cancel();
     _timer = _scheduleNextBeat();
   }
 
   Timer? _scheduleNextBeat() {
     int interval;
     if (_isCountingIn) {
-      interval = (60000 / _bpm).round(); // 预备拍 = 一个四分音符
+      interval = (60000 / _bpm).round();
     } else {
-      // 正式节奏：按节奏型中的下一个音
       final idx = _beatInCycle % _currentPattern!.subdivisions;
       interval = _currentDurations![idx].round();
     }
@@ -98,21 +107,32 @@ class MetronomeService extends ChangeNotifier {
     if (_isCountingIn) {
       _countInRemaining--;
       _currentBeat++;
-      // 预备拍视为四分音符
       _beatController.add([_currentBeat, 4 + _totalBeatCount, _countInRemaining == 3 ? 1 : 0]);
+      // 预备拍：第一拍重拍（accent），其余轻拍
+      if (_countInRemaining == 3) {
+        _playAccent();
+      } else {
+        _playClick();
+      }
       if (_countInRemaining <= 0) {
         _isCountingIn = false;
         _currentBeat = 0;
         _beatInCycle = 0;
       }
     } else {
-      _beatController.add([_currentBeat, _totalBeats, _beatInCycle == 0 ? 1 : 0]);
+      final isAccent = _beatInCycle == 0;
+      _beatController.add([_currentBeat, _totalBeats, isAccent ? 1 : 0]);
+      if (isAccent) {
+        _playAccent();
+      } else {
+        _playClick();
+      }
       _beatInCycle++;
       _currentBeat++;
       _totalBeatCount++;
       if (_beatInCycle >= _currentPattern!.subdivisions) {
         _beatInCycle = 0;
-        _currentBeat = 0; // 重置到当前循环的起点
+        _currentBeat = 0;
       }
     }
 
@@ -120,10 +140,23 @@ class MetronomeService extends ChangeNotifier {
     _timer = _scheduleNextBeat();
   }
 
+  void _playClick() {
+    if (_clickWav != null) {
+      _audioGen.playPreGenerated(_clickWav!);
+    }
+  }
+
+  void _playAccent() {
+    if (_accentWav != null) {
+      _audioGen.playPreGenerated(_accentWav!);
+    }
+  }
+
   @override
   void dispose() {
     stop();
     _beatController.close();
+    _audioGen.dispose();
     super.dispose();
   }
 }

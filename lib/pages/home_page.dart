@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../app.dart';
 import '../core/theme.dart';
 
-/// 首页 — 三大练习模块入口
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = ThemeColors(isDark);
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -15,9 +19,28 @@ class HomePage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 24),
+              // 顶栏：主题切换 + 空白
+              Row(
+                children: [
+                  // 主题切换按钮
+                  IconButton(
+                    onPressed: () => context.read<ThemeNotifier>().toggle(),
+                    icon: Icon(
+                      isDark ? Icons.light_mode : Icons.dark_mode,
+                      color: isDark ? AppTheme.warningColor : AppTheme.primaryColor,
+                    ),
+                    tooltip: isDark ? '切换浅色模式' : '切换深色模式',
+                    style: IconButton.styleFrom(
+                      backgroundColor: (isDark ? AppTheme.darkSurface : AppTheme.lightCard)
+                          .withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const Spacer(),
+                ],
+              ),
+              const Spacer(flex: 1),
               // App 标题
-              const Center(
+              Center(
                 child: Column(
                   children: [
                     Icon(
@@ -25,61 +48,62 @@ class HomePage extends StatelessWidget {
                       size: 48,
                       color: AppTheme.primaryColor,
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Text(
                       'M-Practice',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
+                        color: colors.textPrimary,
                         letterSpacing: 2,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
                       '音乐练习助手',
                       style: TextStyle(
-                        color: AppTheme.textSecondary,
+                        color: colors.textSecondary,
                         fontSize: 14,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
+              const Spacer(flex: 1),
               // 练习模块卡片
               Expanded(
+                flex: 3,
                 child: Column(
                   children: [
-                    // 音准练习
                     Expanded(
                       child: _ModuleCard(
                         icon: Icons.mic,
                         title: '音准练习',
-                        subtitle: '标准音对比 · 实时检测 · 音准仪表盘',
+                        subtitle: '标准音对比 · 实时检测 · 5个八度钢琴键盘',
                         color: AppTheme.primaryColor,
+                        colors: colors,
                         onTap: () => context.push('/pitch'),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    // 节拍练习
+                    const SizedBox(height: 12),
                     Expanded(
                       child: _ModuleCard(
                         icon: Icons.timer,
                         title: '节拍练习',
-                        subtitle: '节拍器 · 8种节奏型 · 预备拍引导',
+                        subtitle: '节拍器 · 8种节奏型 · 钢琴音色节拍声',
                         color: AppTheme.secondaryColor,
+                        colors: colors,
                         onTap: () => context.push('/rhythm'),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    // 曲谱练习（开发中）
+                    const SizedBox(height: 12),
                     Expanded(
                       child: _ModuleCard(
                         icon: Icons.library_music,
                         title: '曲谱练习',
                         subtitle: '简谱跟奏 · 综合评分 · 练习记录',
                         color: AppTheme.warningColor,
+                        colors: colors,
                         onTap: () => context.push('/score'),
                         isComingSoon: true,
                       ),
@@ -87,18 +111,14 @@ class HomePage extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              // 版本信息
-              const Center(
+              const SizedBox(height: 12),
+              Center(
                 child: Text(
                   'v1.0.0 · POC 技术验证版',
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
             ],
           ),
         ),
@@ -112,6 +132,7 @@ class _ModuleCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final Color color;
+  final ThemeColors colors;
   final VoidCallback onTap;
   final bool isComingSoon;
 
@@ -120,6 +141,7 @@ class _ModuleCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.color,
+    required this.colors,
     required this.onTap,
     this.isComingSoon = false,
   });
@@ -130,17 +152,10 @@ class _ModuleCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              color.withValues(alpha: 0.2),
-              color.withValues(alpha: 0.05),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: colors.card,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: color.withValues(alpha: 0.3),
+            color: color.withValues(alpha: 0.4),
             width: 1,
           ),
         ),
@@ -167,19 +182,16 @@ class _ModuleCard extends StatelessWidget {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
+                            color: colors.textPrimary,
                           ),
                         ),
                         if (isComingSoon) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: AppTheme.warningColor.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(8),
@@ -199,19 +211,12 @@ class _ModuleCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: colors.textSecondary, fontSize: 13),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: color.withValues(alpha: 0.6),
-                size: 18,
-              ),
+              Icon(Icons.arrow_forward_ios, color: color.withValues(alpha: 0.6), size: 18),
             ],
           ),
         ),

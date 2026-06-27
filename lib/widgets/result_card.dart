@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 
-/// 练习结果卡片
 class ResultCard extends StatelessWidget {
   final double accuracy;
   final int correct;
@@ -9,6 +8,7 @@ class ResultCard extends StatelessWidget {
   final Duration duration;
   final VoidCallback onRetry;
   final VoidCallback onHome;
+  final bool isDark;
 
   const ResultCard({
     super.key,
@@ -18,13 +18,16 @@ class ResultCard extends StatelessWidget {
     required this.duration,
     required this.onRetry,
     required this.onHome,
+    required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colors = ThemeColors(isDark);
     final percent = (accuracy * 100).toStringAsFixed(1);
 
     return Card(
+      color: colors.card,
       margin: const EdgeInsets.all(20),
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -33,18 +36,11 @@ class ResultCard extends StatelessWidget {
           children: [
             const Icon(Icons.emoji_events, size: 48, color: AppTheme.warningColor),
             const SizedBox(height: 12),
-            Text(
-              '练习完成！',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppTheme.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
+            Text('练习完成！',
+                style: TextStyle(color: colors.textPrimary, fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 24),
-            // 大号准确率
             Container(
-              width: 120,
-              height: 120,
+              width: 120, height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: AppTheme.correctColor, width: 4),
@@ -53,30 +49,14 @@ class ResultCard extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    '$percent%',
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.correctColor,
-                    ),
-                  ),
-                  Text(
-                    '准确率',
-                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
-                  ),
+                  Text('$percent%', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.correctColor)),
+                  Text('准确率', style: TextStyle(color: colors.textSecondary, fontSize: 12)),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              '$correct / $total 正确',
-              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 16),
-            ),
-            Text(
-              '用时 ${duration.inSeconds} 秒',
-              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
-            ),
+            Text('$correct / $total 正确', style: TextStyle(color: colors.textSecondary, fontSize: 16)),
+            Text('用时 ${duration.inSeconds} 秒', style: TextStyle(color: colors.textSecondary, fontSize: 14)),
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -85,10 +65,7 @@ class ResultCard extends StatelessWidget {
                   onPressed: onHome,
                   icon: const Icon(Icons.home),
                   label: const Text('返回'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textSecondary,
-                    side: const BorderSide(color: AppTheme.textSecondary),
-                  ),
+                  style: OutlinedButton.styleFrom(foregroundColor: colors.textSecondary),
                 ),
                 ElevatedButton.icon(
                   onPressed: onRetry,
