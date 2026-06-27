@@ -1,13 +1,14 @@
 {
-    "name": "m_practice",
-    "short_name": "m_practice",
+    "name": "M-Practice 音乐练习助手",
+    "short_name": "M-Practice",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1A1A2E",
+    "theme_color": "#6C63FF",
+    "description": "音准与节拍练习辅助工具 — 面向音乐初学者",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "scope": "/",
     "icons": [
         {
             "src": "icons/Icon-192.png",
